@@ -1,0 +1,39 @@
+import "server-only";
+
+import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
+
+function getServiceAccount() {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+
+  if (!raw) {
+    return undefined;
+  }
+
+  const decoded = raw.trim().startsWith("{")
+    ? raw
+    : Buffer.from(raw, "base64").toString("utf8");
+
+  const serviceAccount = JSON.parse(decoded);
+
+  if (serviceAccount.private_key) {
+    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, "\n");
+  }
+
+  return serviceAccount;
+}
+
+const app =
+  getApps()[0] ??
+  initializeApp({
+    credential: process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+      ? cert(getServiceAccount())
+      : undefined,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  });
+
+export const adminAuth = getAuth(app);
+export const adminDb = getFirestore(app);
+export const adminStorage = getStorage(app);

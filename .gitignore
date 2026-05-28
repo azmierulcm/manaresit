@@ -1,0 +1,11 @@
+.env*.local
+.firebase/
+.next/
+coverage/
+debug.log
+firebase-debug.log
+firestore-debug.log
+functions/lib/
+functions/node_modules/
+node_modules/
+storage-debug.log
