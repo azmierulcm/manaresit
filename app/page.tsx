@@ -1,5 +1,12 @@
+"use client";
+
+import { ProtectedPage } from "@/components/auth/protected-page";
 import { MainDashboard } from "@/components/dashboard/main-dashboard";
 
 export default function HomePage() {
-  return <MainDashboard />;
+  return (
+    <ProtectedPage>
+      <MainDashboard />
+    </ProtectedPage>
+  );
 }

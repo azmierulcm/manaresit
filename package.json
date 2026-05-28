@@ -11,9 +11,12 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "firebase:emulators": "firebase emulators:start",
-    "firebase:deploy:rules": "firebase deploy --only firestore:rules,storage"
+    "firebase:deploy:rules": "firebase deploy --only firestore:rules,storage",
+    "firebase:deploy:indexes": "firebase deploy --only firestore:indexes",
+    "firebase:deploy:all": "firebase deploy --only firestore:rules,firestore:indexes,storage"
   },
   "dependencies": {
+    "@google-cloud/vision": "^4.3.2",
     "firebase": "^10.14.1",
     "firebase-admin": "^12.7.0",
     "lucide-react": "^0.468.0",
