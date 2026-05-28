@@ -40,6 +40,9 @@ FIREBASE_STORAGE_BUCKET=manaresit.firebasestorage.app
 Use the same base64 service-account value from local `.env.local` for
 `FIREBASE_SERVICE_ACCOUNT_KEY`. Do not commit that value to GitHub.
 
+The app can build without `FIREBASE_SERVICE_ACCOUNT_KEY`, but receipt upload
+and any server-side Firebase Admin calls require it at runtime.
+
 ## Firebase Auth
 
 After the first Vercel deployment finishes, copy the Vercel domain and add it

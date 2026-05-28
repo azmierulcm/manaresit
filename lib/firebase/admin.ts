@@ -1,14 +1,15 @@
 import "server-only";
 
 import { cert, getApps, initializeApp } from "firebase-admin/app";
+import type { AppOptions, ServiceAccount } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 
-function getServiceAccount() {
+function getServiceAccount(): ServiceAccount | undefined {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
 
-  if (!raw) {
+  if (!raw || raw === "undefined" || raw === "null") {
     return undefined;
   }
 
@@ -25,14 +26,24 @@ function getServiceAccount() {
   return serviceAccount;
 }
 
+function getAdminAppOptions(): AppOptions {
+  const serviceAccount = getServiceAccount();
+  const options: AppOptions = {};
+
+  if (serviceAccount) {
+    options.credential = cert(serviceAccount);
+  }
+
+  if (process.env.FIREBASE_STORAGE_BUCKET) {
+    options.storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
+  }
+
+  return options;
+}
+
 const app =
   getApps()[0] ??
-  initializeApp({
-    credential: process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-      ? cert(getServiceAccount())
-      : undefined,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-  });
+  initializeApp(getAdminAppOptions());
 
 export const adminAuth = getAuth(app);
 export const adminDb = getFirestore(app);
