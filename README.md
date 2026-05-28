@@ -83,3 +83,8 @@ cd functions
 npm install
 npm run build
 ```
+
+## Deploy
+
+Deploy with Vercel through GitHub. See
+[`docs/vercel-deployment.md`](docs/vercel-deployment.md).
