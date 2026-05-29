@@ -72,22 +72,38 @@ function VaultView() {
           <LockKeyhole className="h-5 w-5 text-emerald-600" />
         </div>
 
-        {/* Filter tabs */}
+        {/* Filter tabs with counts */}
         <div className="flex gap-1.5 rounded-2xl border border-zinc-200 bg-zinc-50 p-1">
-          {FILTERS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setFilter(key)}
-              className={cn(
-                "flex-1 rounded-xl py-1.5 text-xs font-medium transition",
-                filter === key
-                  ? "bg-white shadow-sm text-zinc-950"
-                  : "text-zinc-500 hover:text-zinc-700",
-              )}
-            >
-              {label}
-            </button>
-          ))}
+          {FILTERS.map(({ key, label }) => {
+            const count = key === "all"
+              ? receipts.length
+              : key === "needs_review"
+              ? receipts.filter((r) => r.scanStatus === "ocr_complete" || r.scanStatus === "needs_review").length
+              : receipts.filter((r) => r.scanStatus === key).length;
+            return (
+              <button
+                key={key}
+                onClick={() => setFilter(key)}
+                className={cn(
+                  "flex-1 rounded-xl py-1.5 text-xs font-medium transition",
+                  filter === key
+                    ? "bg-white shadow-sm text-zinc-950"
+                    : "text-zinc-500 hover:text-zinc-700",
+                )}
+              >
+                {label}
+                {count > 0 && (
+                  <span className={cn(
+                    "ml-1.5 rounded-full px-1.5 py-0.5 text-[10px]",
+                    filter === key ? "bg-zinc-100 text-zinc-600" : "bg-zinc-200 text-zinc-500",
+                    key === "needs_review" && count > 0 && "bg-amber-100 text-amber-700",
+                  )}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {isLoading ? (

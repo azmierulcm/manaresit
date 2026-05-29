@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getDownloadURL } from "firebase/storage";
 import { addDoc, collection, doc, serverTimestamp, Timestamp, updateDoc } from "firebase/firestore";
 import { CheckCircle2, ExternalLink, ImageOff, ZoomIn } from "lucide-react";
@@ -52,6 +53,7 @@ type Props = {
 
 export function ReceiptDetailModal({ receipt, userId, open, onClose, onConfirmed }: Props) {
   const { toast } = useToast();
+  const router = useRouter();
 
   // Image
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -215,9 +217,12 @@ export function ReceiptDetailModal({ receipt, userId, open, onClose, onConfirmed
                 {receipt.transactionId && (
                   <div className="flex items-center justify-between pt-1">
                     <span className="text-xs text-zinc-400">Linked transaction</span>
-                    <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                    <button
+                      onClick={() => { onClose(); router.push("/ledger"); }}
+                      className="flex items-center gap-1 text-xs text-emerald-600 font-medium hover:underline"
+                    >
                       <ExternalLink className="h-3 w-3" /> View in ledger
-                    </span>
+                    </button>
                   </div>
                 )}
               </div>

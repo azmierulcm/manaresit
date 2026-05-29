@@ -37,6 +37,32 @@ function filterTx(txns: ClientTransaction[], filter: TxFilter): ClientTransactio
   return txns.filter((t) => t.type === filter);
 }
 
+/** Groups transactions by date label: Today, Yesterday, or "26 May 2025" */
+function groupByDate(txns: ClientTransaction[]): Array<{ label: string; items: ClientTransaction[] }> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const groupMap = new Map<string, ClientTransaction[]>();
+  const dateFmt = new Intl.DateTimeFormat("en-MY", { day: "numeric", month: "short", year: "numeric" });
+
+  for (const tx of txns) {
+    const d = new Date(tx.transactionDate);
+    d.setHours(0, 0, 0, 0);
+    let label: string;
+    if (d.getTime() === today.getTime()) label = "Today";
+    else if (d.getTime() === yesterday.getTime()) label = "Yesterday";
+    else label = dateFmt.format(tx.transactionDate);
+
+    const group = groupMap.get(label) ?? [];
+    group.push(tx);
+    groupMap.set(label, group);
+  }
+
+  return Array.from(groupMap.entries()).map(([label, items]) => ({ label, items }));
+}
+
 /** Returns a Set of transaction IDs that share the same type + amount + day */
 function findDuplicateIds(txns: ClientTransaction[]): Set<string> {
   const groups = new Map<string, string[]>();
@@ -66,6 +92,7 @@ function LedgerView() {
 
   const filtered = filterTx(transactions, filter);
   const dupeIds = findDuplicateIds(transactions);
+  const grouped = groupByDate(filtered);
 
   const totalIncome = transactions
     .filter((t) => t.type === "income")
@@ -241,15 +268,24 @@ function LedgerView() {
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-zinc-100">
-                {filtered.map((tx) => (
-                  <TransactionItem
-                    key={tx.id}
-                    tx={tx}
-                    isDuplicate={dupeIds.has(tx.id)}
-                    onEdit={() => setEditingTx(tx)}
-                    onDelete={() => setDeletingTx(tx)}
-                  />
+              <div className="space-y-1">
+                {grouped.map(({ label, items }) => (
+                  <div key={label}>
+                    <p className="mb-1 mt-3 px-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 first:mt-0">
+                      {label}
+                    </p>
+                    <div className="divide-y divide-zinc-100">
+                      {items.map((tx) => (
+                        <TransactionItem
+                          key={tx.id}
+                          tx={tx}
+                          isDuplicate={dupeIds.has(tx.id)}
+                          onEdit={() => setEditingTx(tx)}
+                          onDelete={() => setDeletingTx(tx)}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}

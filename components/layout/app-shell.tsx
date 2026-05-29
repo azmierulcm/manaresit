@@ -11,6 +11,7 @@ import {
   ReceiptText,
   WalletCards,
 } from "lucide-react";
+
 import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { signOutCurrentUser } from "@/lib/firebase/auth";
@@ -105,22 +106,46 @@ function MobileTopBar({ title }: { title: string }) {
 
 function BottomNav() {
   const pathname = usePathname();
+  const sideItems = navItems.filter((n) => n.href !== "/scan");
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 shadow-sm backdrop-blur lg:hidden">
-      <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
-        {navItems.map(({ label, href, icon: Icon }) => (
+    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1 shadow-sm backdrop-blur lg:hidden">
+      <div className="mx-auto flex max-w-md items-end justify-around">
+        {/* First two nav items */}
+        {sideItems.slice(0, 2).map(({ label, href, icon: Icon }) => (
           <Link
             key={label}
             href={href}
             className={cn(
-              "flex min-h-12 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-medium transition",
-              pathname === href
-                ? "bg-zinc-950 text-white"
-                : "text-zinc-500 hover:bg-zinc-100",
+              "flex min-h-12 flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-medium transition",
+              pathname === href ? "text-zinc-950" : "text-zinc-400 hover:text-zinc-700",
             )}
           >
-            <Icon className="h-5 w-5" aria-hidden="true" />
+            <Icon className={cn("h-5 w-5", pathname === href && "stroke-[2.5]")} aria-hidden="true" />
+            <span>{label}</span>
+          </Link>
+        ))}
+
+        {/* Centre FAB — Scan */}
+        <Link
+          href="/scan"
+          className="relative -top-4 flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full bg-rose-500 shadow-lg shadow-rose-500/30 transition active:scale-95 hover:bg-rose-600"
+        >
+          <Camera className="h-7 w-7 text-white" aria-hidden="true" />
+          <span className="mt-0.5 text-[9px] font-semibold text-white/80">Scan</span>
+        </Link>
+
+        {/* Last two nav items */}
+        {sideItems.slice(2).map(({ label, href, icon: Icon }) => (
+          <Link
+            key={label}
+            href={href}
+            className={cn(
+              "flex min-h-12 flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-medium transition",
+              pathname === href ? "text-zinc-950" : "text-zinc-400 hover:text-zinc-700",
+            )}
+          >
+            <Icon className={cn("h-5 w-5", pathname === href && "stroke-[2.5]")} aria-hidden="true" />
             <span>{label}</span>
           </Link>
         ))}

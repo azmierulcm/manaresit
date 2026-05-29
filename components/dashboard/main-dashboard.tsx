@@ -141,19 +141,13 @@ function MobileTopBar({ onAdd }: { onAdd: () => void }) {
           <p className="text-xs font-medium uppercase text-zinc-500">Today</p>
           <h1 className="truncate text-lg font-semibold text-zinc-950">Manaresit</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" className="h-11 w-11 rounded-full p-0">
-            <Search className="h-5 w-5" aria-hidden="true" />
-            <span className="sr-only">Search</span>
-          </Button>
-          <Button
-            className="h-11 w-11 rounded-full bg-rose-500 p-0 hover:bg-rose-600"
-            onClick={onAdd}
-          >
-            <Plus className="h-5 w-5" aria-hidden="true" />
-            <span className="sr-only">Add receipt</span>
-          </Button>
-        </div>
+        <Button
+          className="h-11 w-11 rounded-full bg-rose-500 p-0 hover:bg-rose-600"
+          onClick={onAdd}
+        >
+          <Plus className="h-5 w-5" aria-hidden="true" />
+          <span className="sr-only">Add receipt</span>
+        </Button>
       </div>
     </header>
   );
@@ -204,7 +198,7 @@ function BalanceCard({
             </p>
           )}
           <p className="mt-3 text-sm leading-6 text-zinc-300">
-            Confirmed income minus expenses for this month.
+            This month&apos;s net — income minus expenses.
           </p>
         </div>
         <div className="rounded-full bg-white/10 p-3">
@@ -336,39 +330,24 @@ function CashflowChart({
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ left: -18, right: 8 }}>
               <defs>
-                <linearGradient id="spend" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#fb7185" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#fb7185" stopOpacity={0} />
+                <linearGradient id="gradSpend" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="gradIncome" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="#e4e4e7" strokeDasharray="4 4" vertical={false} />
-              <XAxis
-                dataKey="day"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#71717a", fontSize: 12 }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: "#71717a", fontSize: 12 }}
-                width={38}
-              />
+              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "#71717a", fontSize: 12 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: "#71717a", fontSize: 12 }} width={38} />
               <Tooltip
                 cursor={{ stroke: "#d4d4d8" }}
-                contentStyle={{
-                  borderRadius: "16px",
-                  border: "1px solid #e4e4e7",
-                  boxShadow: "0 1px 2px rgb(0 0 0 / 0.05)",
-                }}
+                contentStyle={{ borderRadius: "16px", border: "1px solid #e4e4e7", boxShadow: "0 1px 2px rgb(0 0 0 / 0.05)" }}
               />
-              <Area
-                type="monotone"
-                dataKey="spend"
-                stroke="#f43f5e"
-                strokeWidth={2}
-                fill="url(#spend)"
-              />
+              <Area type="monotone" dataKey="income" name="Income" stroke="#10b981" strokeWidth={2} fill="url(#gradIncome)" />
+              <Area type="monotone" dataKey="spend" name="Expenses" stroke="#f43f5e" strokeWidth={2} fill="url(#gradSpend)" />
             </AreaChart>
           </ResponsiveContainer>
         )}
@@ -482,17 +461,23 @@ function RecentActivity({
       ) : (
         <div className="mt-3 divide-y divide-zinc-100">
           {items.map((item, i) => (
-            <div
-              key={i}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-4"
-            >
+            <div key={i} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 py-3.5">
+              <div className={cn(
+                "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
+                item.type === "income" ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-500",
+              )}>
+                {item.type === "income"
+                  ? <ArrowDownLeft className="h-3.5 w-3.5" />
+                  : <ArrowUpRight className="h-3.5 w-3.5" />}
+              </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-zinc-950">{item.title}</p>
-                <p className="mt-1 truncate text-sm text-zinc-500">{item.detail}</p>
+                <p className="mt-0.5 truncate text-xs text-zinc-400">{item.detail}</p>
               </div>
               <div className="text-right">
-                <p className="text-sm font-semibold text-zinc-950">{item.amount}</p>
-                <p className="mt-1 text-xs font-medium text-emerald-700">{item.status}</p>
+                <p className={cn("text-sm font-semibold", item.type === "income" ? "text-emerald-600" : "text-zinc-950")}>
+                  {item.amount}
+                </p>
               </div>
             </div>
           ))}
@@ -504,22 +489,44 @@ function RecentActivity({
 
 function MobileBottomNav() {
   const pathname = usePathname();
+  const sideItems = navItems.filter((n) => n.href !== "/scan");
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 shadow-sm backdrop-blur lg:hidden">
-      <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
-        {navItems.map(({ label, href, icon: Icon }) => (
+    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-1 shadow-sm backdrop-blur lg:hidden">
+      <div className="mx-auto flex max-w-md items-end justify-around">
+        {sideItems.slice(0, 2).map(({ label, href, icon: Icon }) => (
           <Link
             key={label}
             href={href}
             className={cn(
-              "flex min-h-12 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-medium transition",
-              pathname === href
-                ? "bg-zinc-950 text-white"
-                : "text-zinc-500 hover:bg-zinc-100",
+              "flex min-h-12 flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-medium transition",
+              pathname === href ? "text-zinc-950" : "text-zinc-400 hover:text-zinc-700",
             )}
           >
-            <Icon className="h-5 w-5" aria-hidden="true" />
+            <Icon className={cn("h-5 w-5", pathname === href && "stroke-[2.5]")} aria-hidden="true" />
+            <span>{label}</span>
+          </Link>
+        ))}
+
+        {/* Centre FAB — Scan */}
+        <Link
+          href="/scan"
+          className="relative -top-4 flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full bg-rose-500 shadow-lg shadow-rose-500/30 transition active:scale-95 hover:bg-rose-600"
+        >
+          <Camera className="h-7 w-7 text-white" aria-hidden="true" />
+          <span className="mt-0.5 text-[9px] font-semibold text-white/80">Scan</span>
+        </Link>
+
+        {sideItems.slice(2).map(({ label, href, icon: Icon }) => (
+          <Link
+            key={label}
+            href={href}
+            className={cn(
+              "flex min-h-12 flex-1 flex-col items-center justify-center gap-1 rounded-2xl text-[11px] font-medium transition",
+              pathname === href ? "text-zinc-950" : "text-zinc-400 hover:text-zinc-700",
+            )}
+          >
+            <Icon className={cn("h-5 w-5", pathname === href && "stroke-[2.5]")} aria-hidden="true" />
             <span>{label}</span>
           </Link>
         ))}
@@ -609,6 +616,7 @@ export function MainDashboard() {
                 title="This month"
                 value={isLoading ? "—" : money.format(stats.expenses)}
                 icon={ArrowUpRight}
+                tone="rose"
               />
             </section>
 

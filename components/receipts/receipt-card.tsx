@@ -181,9 +181,6 @@ export function ReceiptCard({
               </span>
             </div>
 
-            {needsReview && (
-              <p className="mt-1.5 text-[10px] text-zinc-400">Swipe left to delete</p>
-            )}
           </div>
         </Card>
       </div>

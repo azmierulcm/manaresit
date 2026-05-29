@@ -23,6 +23,7 @@ export type DashboardStats = {
     detail: string;
     amount: string;
     status: string;
+    type: "income" | "expense";
   }>;
 };
 
@@ -150,6 +151,7 @@ export function useDashboardStats(userId: string | null) {
         detail: `${tx.category} · ${tx.source === "receipt_scan" ? "Receipt" : "Manual"}`,
         amount: `${tx.type === "income" ? "+" : "-"}RM ${tx.amount.toFixed(2)}`,
         status: tx.status === "confirmed" ? "Confirmed" : "Pending",
+        type: tx.type,
       }));
 
       // Receipts

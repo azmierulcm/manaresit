@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   addDoc,
   collection,
@@ -30,6 +30,8 @@ type Props = {
   open: boolean;
   onClose: () => void;
   userId: string;
+  /** Pass a File to skip the pick screen and start uploading immediately */
+  initialFile?: File | null;
   onSuccess?: () => void;
 };
 
@@ -41,7 +43,7 @@ type ReviewData = {
   type: "expense" | "income";
 };
 
-export function UploadModal({ open, onClose, userId, onSuccess }: Props) {
+export function UploadModal({ open, onClose, userId, initialFile, onSuccess }: Props) {
   const [screen, setScreen] = useState<Screen>("pick");
   const [result, setResult] = useState<ReceiptUploadResponse | null>(null);
   const [form, setForm] = useState<ReviewData>({
@@ -55,6 +57,14 @@ export function UploadModal({ open, onClose, userId, onSuccess }: Props) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // When a file is passed in directly (e.g. from Scan page), skip pick screen
+  useEffect(() => {
+    if (open && initialFile) {
+      processFile(initialFile);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialFile]);
 
   function reset() {
     setScreen("pick");
