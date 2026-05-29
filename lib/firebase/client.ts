@@ -13,21 +13,10 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-function assertClientConfig() {
-  const missing = Object.entries(firebaseConfig)
-    .filter(([, value]) => !value)
-    .map(([key]) => key);
-
-  if (missing.length > 0) {
-    throw new Error(`Missing Firebase client env vars: ${missing.join(", ")}`);
-  }
-}
-
 export function getFirebaseApp(): FirebaseApp {
   if (getApps().length > 0) {
     return getApps()[0];
   }
 
-  assertClientConfig();
   return initializeApp(firebaseConfig);
 }
