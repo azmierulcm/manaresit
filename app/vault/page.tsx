@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { deleteDoc, doc } from "firebase/firestore";
+import { deleteObject } from "firebase/storage";
 import { LockKeyhole } from "lucide-react";
 import { ProtectedPage } from "@/components/auth/protected-page";
 import { ReceiptCard } from "@/components/receipts/receipt-card";
@@ -8,7 +10,10 @@ import { ReceiptDetailModal } from "@/components/receipts/receipt-detail-modal";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/auth/auth-provider";
+import { useToast } from "@/components/ui/toast";
 import { useReceipts, type ClientReceipt } from "@/hooks/use-receipts";
+import { db } from "@/lib/firebase/firestore";
+import { receiptStorageRef } from "@/lib/firebase/storage";
 import { AppShell } from "@/components/layout/app-shell";
 import { cn } from "@/lib/utils";
 
@@ -33,10 +38,26 @@ function filterReceipts(receipts: ClientReceipt[], filter: Filter): ClientReceip
 function VaultView() {
   const { user } = useAuth();
   const { receipts, isLoading } = useReceipts(user?.uid ?? null);
+  const { toast } = useToast();
   const [filter, setFilter] = useState<Filter>("all");
   const [selected, setSelected] = useState<ClientReceipt | null>(null);
 
   const filtered = filterReceipts(receipts, filter);
+
+  async function handleDelete(receipt: ClientReceipt) {
+    if (!user) return;
+    try {
+      // Delete Firestore doc
+      await deleteDoc(doc(db, "receipts", receipt.id));
+
+      // Best-effort delete from Storage (don't block on failure)
+      deleteObject(receiptStorageRef(user.uid, receipt.id)).catch(() => null);
+
+      toast("Receipt deleted.");
+    } catch {
+      toast("Failed to delete receipt.", "error");
+    }
+  }
 
   return (
     <AppShell title="Vault">
@@ -79,7 +100,9 @@ function VaultView() {
           <Card className="p-8 text-center">
             <LockKeyhole className="mx-auto h-8 w-8 text-zinc-300" />
             <p className="mt-3 text-sm font-medium text-zinc-500">
-              {filter === "all" ? "No receipts yet" : `No ${FILTERS.find(f => f.key === filter)?.label.toLowerCase()} receipts`}
+              {filter === "all"
+                ? "No receipts yet"
+                : `No ${FILTERS.find((f) => f.key === filter)?.label.toLowerCase()} receipts`}
             </p>
             {filter === "all" && (
               <p className="mt-1 text-xs text-zinc-400">
@@ -90,7 +113,12 @@ function VaultView() {
         ) : (
           <div className="space-y-2">
             {filtered.map((r) => (
-              <ReceiptCard key={r.id} receipt={r} onClick={() => setSelected(r)} />
+              <ReceiptCard
+                key={r.id}
+                receipt={r}
+                onClick={() => setSelected(r)}
+                onDelete={() => handleDelete(r)}
+              />
             ))}
           </div>
         )}
