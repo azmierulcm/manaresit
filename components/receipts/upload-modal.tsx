@@ -25,6 +25,7 @@ const CATEGORIES = [
 ];
 
 type Screen = "pick" | "uploading" | "review" | "done";
+type UploadStep = "compressing" | "uploading" | "scanning";
 
 type Props = {
   open: boolean;
@@ -54,6 +55,7 @@ export function UploadModal({ open, onClose, userId, initialFile, onSuccess }: P
     type: "expense",
   });
   const [saving, setSaving] = useState(false);
+  const [uploadStep, setUploadStep] = useState<UploadStep>("compressing");
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -86,8 +88,9 @@ export function UploadModal({ open, onClose, userId, initialFile, onSuccess }: P
 
   async function processFile(file: File) {
     setScreen("uploading");
+    setUploadStep("compressing");
     try {
-      const res = await uploadReceipt(file);
+      const res = await uploadReceipt(file, setUploadStep);
       setResult(res);
       setForm({
         vendor: res.extracted.vendor ?? "",
@@ -203,13 +206,44 @@ export function UploadModal({ open, onClose, userId, initialFile, onSuccess }: P
         )}
 
         {screen === "uploading" && (
-          <div className="flex flex-col items-center gap-4 py-8">
+          <div className="flex flex-col items-center gap-5 py-6">
             <Spinner className="h-10 w-10" />
-            <div className="text-center">
-              <p className="font-medium text-zinc-950">Scanning receipt…</p>
-              <p className="mt-1 text-sm text-zinc-500">
-                Compressing and extracting data with AI
-              </p>
+
+            {/* Step labels */}
+            <div className="w-full space-y-3">
+              {(
+                [
+                  { key: "compressing", label: "Compressing image", desc: "Optimising for fast upload" },
+                  { key: "uploading",   label: "Uploading",          desc: "Sending to your vault" },
+                  { key: "scanning",    label: "AI scanning",         desc: "Extracting vendor, amount & date" },
+                ] as const
+              ).map(({ key, label, desc }) => {
+                const steps: UploadStep[] = ["compressing", "uploading", "scanning"];
+                const currentIdx = steps.indexOf(uploadStep);
+                const thisIdx = steps.indexOf(key);
+                const isDone = thisIdx < currentIdx;
+                const isActive = thisIdx === currentIdx;
+                return (
+                  <div key={key} className="flex items-center gap-3">
+                    <div className={[
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors",
+                      isDone  ? "bg-emerald-500 text-white" :
+                      isActive? "bg-rose-500 text-white animate-pulse" :
+                               "bg-zinc-100 text-zinc-400",
+                    ].join(" ")}>
+                      {isDone ? "✓" : thisIdx + 1}
+                    </div>
+                    <div className="min-w-0">
+                      <p className={["text-sm font-medium", isActive ? "text-zinc-950" : isDone ? "text-emerald-700" : "text-zinc-400"].join(" ")}>
+                        {label}
+                      </p>
+                      {isActive && (
+                        <p className="text-xs text-zinc-400">{desc}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

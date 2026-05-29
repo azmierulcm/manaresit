@@ -70,6 +70,7 @@ export async function POST(request: NextRequest) {
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Missing receipt image." }, { status: 400 });
     }
+    const originalName = (formData.get("originalName") as string | null) ?? file.name;
 
     assertImageFile(file);
 
@@ -78,10 +79,12 @@ export async function POST(request: NextRequest) {
     const originalBuffer = Buffer.from(await file.arrayBuffer());
 
     // 1. Compress to AVIF for storage
+    // effort:1 is 3× faster than effort:4 with only marginally larger file size.
+    // Image is already client-side pre-compressed to ~300-600KB so input is small.
     const processed = await sharp(originalBuffer)
       .rotate()
-      .resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true })
-      .avif({ quality: 55, effort: 4 })
+      .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
+      .avif({ quality: 60, effort: 1 })
       .toBuffer({ resolveWithObject: true });
 
     // 2 + 3. Upload to Storage AND run OCR in parallel — saves ~1-2s
@@ -129,7 +132,7 @@ export async function POST(request: NextRequest) {
       userId,
       storagePath,
       originalFile: {
-        name: file.name,
+        name: originalName,
         mimeType: file.type,
         sizeBytes: file.size,
       },
