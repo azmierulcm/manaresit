@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getDownloadURL } from "firebase/storage";
 import { addDoc, collection, doc, serverTimestamp, Timestamp, updateDoc } from "firebase/firestore";
@@ -74,16 +74,30 @@ export function ReceiptDetailModal({ receipt, userId, open, onClose, onConfirmed
     receipt?.scanStatus === "ocr_complete" || receipt?.scanStatus === "needs_review";
   const isConfirmed = receipt?.scanStatus === "confirmed";
 
+  // Cache signed URLs so re-opening the same receipt doesn't re-fetch
+  const urlCache = useRef<Map<string, string>>(new Map());
+
   // Load image from Firebase Storage when receipt changes
   useEffect(() => {
     if (!receipt || !open) return;
-    setImageUrl(null);
     setImageError(false);
-    setImageLoading(true);
     setDone(false);
 
+    const cached = urlCache.current.get(receipt.id);
+    if (cached) {
+      setImageUrl(cached);
+      setImageLoading(false);
+      return;
+    }
+
+    setImageUrl(null);
+    setImageLoading(true);
     getDownloadURL(receiptStorageRef(userId, receipt.id))
-      .then((url) => { setImageUrl(url); setImageLoading(false); })
+      .then((url) => {
+        urlCache.current.set(receipt.id, url);
+        setImageUrl(url);
+        setImageLoading(false);
+      })
       .catch(() => { setImageError(true); setImageLoading(false); });
   }, [receipt?.id, open, userId]);
 
