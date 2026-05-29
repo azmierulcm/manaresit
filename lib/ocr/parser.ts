@@ -182,19 +182,32 @@ function extractDate(text: string): Date | null {
     if (!isNaN(d.getTime()) && d.getFullYear() > 2000) return d;
   }
 
-  // DD/MM/YYYY or DD-MM-YYYY (4-digit year)
+  // D/M/YYYY or M/D/YYYY or DD-MM-YYYY — disambiguate by which part exceeds 12
   const dmy4 = text.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/);
   if (dmy4) {
-    const d = new Date(parseInt(dmy4[3]), parseInt(dmy4[2]) - 1, parseInt(dmy4[1]));
+    const a = parseInt(dmy4[1]);
+    const b = parseInt(dmy4[2]);
+    const yyyy = parseInt(dmy4[3]);
+    let day: number, month: number;
+    if (a > 12) { day = a; month = b; }       // definitely DD/MM/YYYY
+    else if (b > 12) { day = b; month = a; }  // definitely MM/DD/YYYY
+    else { day = a; month = b; }              // ambiguous — default DD/MM (Malaysian)
+    const d = new Date(yyyy, month - 1, day);
     if (!isNaN(d.getTime()) && d.getFullYear() > 2000) return d;
   }
 
-  // DD/MM/YY or DD-MM-YY (2-digit year — common on Malaysian receipts)
+  // DD/MM/YY or MM/DD/YY (2-digit year)
   const dmy2 = text.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})\b/);
   if (dmy2) {
+    const a = parseInt(dmy2[1]);
+    const b = parseInt(dmy2[2]);
     const yy = parseInt(dmy2[3]);
-    const year = yy + (yy <= currentYear % 100 + 5 ? 2000 : 1900);
-    const d = new Date(year, parseInt(dmy2[2]) - 1, parseInt(dmy2[1]));
+    const yyyy = yy + (yy <= currentYear % 100 + 5 ? 2000 : 1900);
+    let day: number, month: number;
+    if (a > 12) { day = a; month = b; }
+    else if (b > 12) { day = b; month = a; }
+    else { day = a; month = b; }
+    const d = new Date(yyyy, month - 1, day);
     if (!isNaN(d.getTime()) && d.getFullYear() > 2000) return d;
   }
 
