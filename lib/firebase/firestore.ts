@@ -4,11 +4,18 @@ import {
   collection,
   connectFirestoreEmulator,
   doc,
+  initializeFirestore,
   getFirestore,
 } from "firebase/firestore";
 import { getFirebaseApp } from "@/lib/firebase/client";
 
-export const db = getFirestore(getFirebaseApp());
+let db: ReturnType<typeof getFirestore>;
+try {
+  db = initializeFirestore(getFirebaseApp(), { ignoreUndefinedProperties: true });
+} catch {
+  db = getFirestore(getFirebaseApp());
+}
+export { db };
 
 if (
   typeof window !== "undefined" &&

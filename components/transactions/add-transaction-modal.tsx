@@ -65,7 +65,7 @@ export function AddTransactionModal({ open, onClose, userId, onSuccess }: Props)
         currency: "MYR",
         category,
         title: title.trim(),
-        description: notes.trim() || undefined,
+        ...(notes.trim() ? { description: notes.trim() } : {}),
         transactionDate: Timestamp.fromDate(new Date(date)),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
