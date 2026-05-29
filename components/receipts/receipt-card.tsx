@@ -36,9 +36,23 @@ const date = new Intl.DateTimeFormat("en-MY", {
   year: "numeric",
 });
 
-export function ReceiptCard({ receipt }: { receipt: ClientReceipt }) {
+export function ReceiptCard({
+  receipt,
+  onClick,
+}: {
+  receipt: ClientReceipt;
+  onClick?: () => void;
+}) {
+  const needsReview = receipt.scanStatus === "ocr_complete" || receipt.scanStatus === "needs_review";
   return (
-    <Card className="flex items-start gap-3 p-4">
+    <Card
+      className={cn(
+        "flex items-start gap-3 p-4 transition",
+        onClick ? "cursor-pointer hover:bg-zinc-50 active:bg-zinc-100" : "",
+        needsReview ? "border-amber-200" : "",
+      )}
+      onClick={onClick}
+    >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-500">
         <ReceiptText className="h-5 w-5" />
       </div>

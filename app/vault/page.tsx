@@ -4,6 +4,7 @@ import { useState } from "react";
 import { LockKeyhole } from "lucide-react";
 import { ProtectedPage } from "@/components/auth/protected-page";
 import { ReceiptCard } from "@/components/receipts/receipt-card";
+import { ReceiptDetailModal } from "@/components/receipts/receipt-detail-modal";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -33,6 +34,7 @@ function VaultView() {
   const { user } = useAuth();
   const { receipts, isLoading } = useReceipts(user?.uid ?? null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [selected, setSelected] = useState<ClientReceipt | null>(null);
 
   const filtered = filterReceipts(receipts, filter);
 
@@ -88,11 +90,19 @@ function VaultView() {
         ) : (
           <div className="space-y-2">
             {filtered.map((r) => (
-              <ReceiptCard key={r.id} receipt={r} />
+              <ReceiptCard key={r.id} receipt={r} onClick={() => setSelected(r)} />
             ))}
           </div>
         )}
       </div>
+
+      <ReceiptDetailModal
+        receipt={selected}
+        userId={user?.uid ?? ""}
+        open={!!selected}
+        onClose={() => setSelected(null)}
+        onConfirmed={() => setSelected(null)}
+      />
     </AppShell>
   );
 }
