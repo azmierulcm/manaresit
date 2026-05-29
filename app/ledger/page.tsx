@@ -1,15 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { deleteDoc, doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { Plus, Trash2 } from "lucide-react";
 import { ProtectedPage } from "@/components/auth/protected-page";
 import { TransactionItem } from "@/components/transactions/transaction-item";
 import { AddTransactionModal } from "@/components/transactions/add-transaction-modal";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Modal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import { useToast } from "@/components/ui/toast";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useTransactions, type ClientTransaction } from "@/hooks/use-transactions";
+import { db } from "@/lib/firebase/firestore";
 import { AppShell } from "@/components/layout/app-shell";
 import { cn } from "@/lib/utils";
 
@@ -32,13 +37,35 @@ function filterTx(txns: ClientTransaction[], filter: TxFilter): ClientTransactio
   return txns.filter((t) => t.type === filter);
 }
 
+/** Returns a Set of transaction IDs that share the same type + amount + day */
+function findDuplicateIds(txns: ClientTransaction[]): Set<string> {
+  const groups = new Map<string, string[]>();
+  for (const tx of txns) {
+    const key = `${tx.type}|${tx.amount}|${tx.transactionDate.toDateString()}`;
+    const group = groups.get(key) ?? [];
+    group.push(tx.id);
+    groups.set(key, group);
+  }
+  const dupeIds = new Set<string>();
+  for (const ids of groups.values()) {
+    if (ids.length > 1) ids.forEach((id) => dupeIds.add(id));
+  }
+  return dupeIds;
+}
+
 function LedgerView() {
   const { user } = useAuth();
   const { transactions, isLoading } = useTransactions(user?.uid ?? null);
+  const { toast } = useToast();
+
   const [filter, setFilter] = useState<TxFilter>("all");
   const [addOpen, setAddOpen] = useState(false);
+  const [editingTx, setEditingTx] = useState<ClientTransaction | null>(null);
+  const [deletingTx, setDeletingTx] = useState<ClientTransaction | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const filtered = filterTx(transactions, filter);
+  const dupeIds = findDuplicateIds(transactions);
 
   const totalIncome = transactions
     .filter((t) => t.type === "income")
@@ -47,8 +74,33 @@ function LedgerView() {
     .filter((t) => t.type === "expense")
     .reduce((s, t) => s + t.amount, 0);
 
+  async function handleDelete() {
+    if (!deletingTx) return;
+    setDeleting(true);
+    try {
+      await deleteDoc(doc(db, "transactions", deletingTx.id));
+
+      // If this transaction came from a receipt scan, revert receipt status
+      if (deletingTx.receiptId) {
+        await updateDoc(doc(db, "receipts", deletingTx.receiptId), {
+          scanStatus: "ocr_complete",
+          transactionId: null,
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      toast("Transaction deleted.");
+      setDeletingTx(null);
+    } catch {
+      toast("Failed to delete transaction.", "error");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <>
+      {/* Add modal */}
       {user && (
         <AddTransactionModal
           open={addOpen}
@@ -56,6 +108,59 @@ function LedgerView() {
           userId={user.uid}
         />
       )}
+
+      {/* Edit modal */}
+      {user && editingTx && (
+        <AddTransactionModal
+          open={!!editingTx}
+          onClose={() => setEditingTx(null)}
+          userId={user.uid}
+          transaction={editingTx}
+        />
+      )}
+
+      {/* Delete confirmation modal */}
+      <Modal
+        open={!!deletingTx}
+        onClose={() => !deleting && setDeletingTx(null)}
+        title="Delete transaction?"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-zinc-600">
+            <span className="font-semibold text-zinc-950">{deletingTx?.title}</span>{" "}
+            ({money.format(deletingTx?.amount ?? 0)}) will be permanently removed.
+            {deletingTx?.receiptId && (
+              <span className="mt-1 block text-xs text-amber-700">
+                The linked receipt will be moved back to "Needs review".
+              </span>
+            )}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => setDeletingTx(null)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 bg-rose-500 hover:bg-rose-600"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <Spinner className="h-4 w-4 border-white border-t-rose-200" />
+              ) : (
+                <>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <AppShell title="Ledger">
         <div className="space-y-4">
@@ -83,7 +188,7 @@ function LedgerView() {
             </Card>
           </div>
 
-          {/* Header + Add button */}
+          {/* Filter tabs + Add button */}
           <div className="flex items-center justify-between gap-4">
             <div className="flex gap-1.5 rounded-2xl border border-zinc-200 bg-zinc-50 p-1">
               {FILTERS.map(({ key, label }) => (
@@ -110,6 +215,14 @@ function LedgerView() {
             </Button>
           </div>
 
+          {/* Duplicate warning banner */}
+          {dupeIds.size > 0 && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+              <span className="font-semibold">{dupeIds.size} possible duplicate</span>
+              {dupeIds.size > 1 ? "s" : ""} detected — same amount and date. Review and delete any extras.
+            </div>
+          )}
+
           {/* Transaction list */}
           <Card className="p-4 sm:p-5">
             {isLoading ? (
@@ -121,9 +234,7 @@ function LedgerView() {
             ) : filtered.length === 0 ? (
               <div className="py-8 text-center">
                 <p className="text-sm text-zinc-400">
-                  {filter === "all"
-                    ? "No transactions yet."
-                    : `No ${filter} transactions.`}
+                  {filter === "all" ? "No transactions yet." : `No ${filter} transactions.`}
                 </p>
                 <p className="mt-1 text-xs text-zinc-400">
                   Add one manually or scan a receipt.
@@ -132,7 +243,13 @@ function LedgerView() {
             ) : (
               <div className="divide-y divide-zinc-100">
                 {filtered.map((tx) => (
-                  <TransactionItem key={tx.id} tx={tx} />
+                  <TransactionItem
+                    key={tx.id}
+                    tx={tx}
+                    isDuplicate={dupeIds.has(tx.id)}
+                    onEdit={() => setEditingTx(tx)}
+                    onDelete={() => setDeletingTx(tx)}
+                  />
                 ))}
               </div>
             )}

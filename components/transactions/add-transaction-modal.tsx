@@ -1,12 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore";
+import { useEffect, useState } from "react";
+import {
+  addDoc,
+  collection,
+  doc,
+  serverTimestamp,
+  Timestamp,
+  updateDoc,
+} from "firebase/firestore";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/ui/toast";
 import { db } from "@/lib/firebase/firestore";
+import type { ClientTransaction } from "@/hooks/use-transactions";
 
 const CATEGORIES = [
   "Food", "Groceries", "Transport", "Utilities", "Health",
@@ -18,10 +26,19 @@ type Props = {
   open: boolean;
   onClose: () => void;
   userId: string;
+  /** Pass an existing transaction to switch into edit mode */
+  transaction?: ClientTransaction;
   onSuccess?: () => void;
 };
 
-export function AddTransactionModal({ open, onClose, userId, onSuccess }: Props) {
+export function AddTransactionModal({
+  open,
+  onClose,
+  userId,
+  transaction,
+  onSuccess,
+}: Props) {
+  const isEdit = !!transaction;
   const [type, setType] = useState<"income" | "expense">("expense");
   const [amount, setAmount] = useState("");
   const [title, setTitle] = useState("");
@@ -30,6 +47,21 @@ export function AddTransactionModal({ open, onClose, userId, onSuccess }: Props)
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+
+  // Populate from existing transaction when editing
+  useEffect(() => {
+    if (transaction) {
+      setType(transaction.type);
+      setAmount(transaction.amount.toString());
+      setTitle(transaction.title);
+      setCategory(transaction.category);
+      setDate(transaction.transactionDate.toISOString().split("T")[0]);
+      setNotes(transaction.description ?? "");
+    } else {
+      reset();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transaction?.id, open]);
 
   function reset() {
     setType("expense");
@@ -42,7 +74,7 @@ export function AddTransactionModal({ open, onClose, userId, onSuccess }: Props)
   }
 
   function handleClose() {
-    reset();
+    if (!isEdit) reset();
     onClose();
   }
 
@@ -56,32 +88,47 @@ export function AddTransactionModal({ open, onClose, userId, onSuccess }: Props)
     }
     setSaving(true);
     try {
-      await addDoc(collection(db, "transactions"), {
-        userId,
-        type,
-        source: "manual",
-        status: "confirmed",
-        amount: parsed,
-        currency: "MYR",
-        category,
-        title: title.trim(),
-        ...(notes.trim() ? { description: notes.trim() } : {}),
-        transactionDate: Timestamp.fromDate(new Date(date)),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-      toast("Transaction added!");
+      if (isEdit && transaction) {
+        await updateDoc(doc(db, "transactions", transaction.id), {
+          type,
+          amount: parsed,
+          currency: "MYR",
+          category,
+          title: title.trim(),
+          ...(notes.trim() ? { description: notes.trim() } : { description: null }),
+          transactionDate: Timestamp.fromDate(new Date(date)),
+          updatedAt: serverTimestamp(),
+        });
+        toast("Transaction updated!");
+      } else {
+        await addDoc(collection(db, "transactions"), {
+          userId,
+          type,
+          source: "manual",
+          status: "confirmed",
+          amount: parsed,
+          currency: "MYR",
+          category,
+          title: title.trim(),
+          ...(notes.trim() ? { description: notes.trim() } : {}),
+          transactionDate: Timestamp.fromDate(new Date(date)),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        toast("Transaction added!");
+      }
       onSuccess?.();
-      reset();
+      if (!isEdit) reset();
       onClose();
     } catch {
-      toast("Failed to save transaction.", "error");
+      toast(`Failed to ${isEdit ? "update" : "save"} transaction.`, "error");
+    } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title="Add transaction">
+    <Modal open={open} onClose={handleClose} title={isEdit ? "Edit transaction" : "Add transaction"}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex gap-2">
           {(["expense", "income"] as const).map((t) => (
@@ -155,7 +202,7 @@ export function AddTransactionModal({ open, onClose, userId, onSuccess }: Props)
             Notes <span className="text-zinc-400">(optional)</span>
           </label>
           <textarea
-            className="w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm outline-none focus:border-zinc-400 resize-none"
+            className="w-full resize-none rounded-xl border border-zinc-200 px-3 py-2.5 text-sm outline-none focus:border-zinc-400"
             rows={2}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -177,7 +224,13 @@ export function AddTransactionModal({ open, onClose, userId, onSuccess }: Props)
                 : "bg-rose-500 hover:bg-rose-600")
             }
           >
-            {saving ? <Spinner className="h-4 w-4 border-white border-t-transparent" /> : "Save"}
+            {saving ? (
+              <Spinner className="h-4 w-4 border-white border-t-transparent" />
+            ) : isEdit ? (
+              "Save changes"
+            ) : (
+              "Save"
+            )}
           </Button>
         </div>
       </form>
