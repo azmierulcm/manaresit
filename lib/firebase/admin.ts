@@ -47,4 +47,5 @@ const app =
 
 export const adminAuth = getAuth(app);
 export const adminDb = getFirestore(app);
+adminDb.settings({ ignoreUndefinedProperties: true });
 export const adminStorage = getStorage(app);
