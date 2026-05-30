@@ -15,34 +15,42 @@ function getClient(): Anthropic {
 }
 
 type ClaudeReceiptResult = {
-  vendor?: string;
-  totalAmount?: number;
-  taxAmount?: number;
+  vendor?: string | null;
+  totalAmount?: number | string | null;
+  taxAmount?: number | string | null;
   currency?: string;
-  receiptDate?: string; // YYYY-MM-DD
+  receiptDate?: string | null;
   lineItems?: Array<{
     description: string;
-    quantity: number;
-    unitPrice: number;
-    total: number;
+    quantity: number | string;
+    unitPrice: number | string;
+    total: number | string;
   }>;
 };
+
+// Parse a value that Claude may return as a number OR a string like "13,800"
+function toNumber(val: number | string | null | undefined): number | undefined {
+  if (val == null) return undefined;
+  if (typeof val === "number") return isFinite(val) ? val : undefined;
+  const n = parseFloat(String(val).replace(/,/g, "").trim());
+  return isFinite(n) ? n : undefined;
+}
 
 const EXTRACTION_PROMPT = `You are a receipt data extractor. Analyse this receipt image and return ONLY a valid JSON object — no markdown, no explanation, just the JSON.
 
 Extract these fields:
-- vendor: the store or restaurant name (string or null)
-- totalAmount: the final payment amount as a number (e.g. 13800 or 45.50). For Korean receipts use 결제금액 or 합계. Do NOT include thousand separators.
-- taxAmount: tax amount as a number (SST, GST, 부가세, VAT, etc.) or null
-- currency: ISO 4217 code — detect from symbols or context:
-    ₩ or Korean text with no symbol → "KRW"
-    RM or Malay text → "MYR"
+- vendor: the business/company name printed at the top of the receipt (string). If the name is unclear, use the branch name or address. Never return null — use your best guess from the receipt header.
+- totalAmount: the final payment amount as a plain JSON number with no commas or symbols (e.g. 13800 or 45.50). For Korean: use 결제금액 or 합계. For Malaysian: use TOTAL or JUMLAH.
+- taxAmount: tax/VAT amount as a plain JSON number or null (SST, GST, 부가세, VAT, service charge, etc.)
+- currency: ISO 4217 code — detect from context:
+    Korean text or Korean store → "KRW"
+    RM / RINGGIT / Malaysian store → "MYR"
     $ → "USD"  S$ → "SGD"  A$ → "AUD"  ¥ or 円 → "JPY"  £ → "GBP"  € → "EUR"  ฿ → "THB"  Rp → "IDR"
-    Default to "MYR" only if the receipt is clearly Malaysian.
+    When uncertain, infer from the country/language of the receipt.
 - receiptDate: date as "YYYY-MM-DD" string or null
-- lineItems: array of {description, quantity, unitPrice, total} — numbers only, no symbols
+- lineItems: array of {description, quantity, unitPrice, total} with plain numbers
 
-Example output for a Korean receipt:
+Example — Korean receipt:
 {"vendor":"KFC 인천공항","totalAmount":13800,"taxAmount":1254,"currency":"KRW","receiptDate":"2026-05-29","lineItems":[{"description":"징거슈퍼세트","quantity":1,"unitPrice":11500,"total":11500},{"description":"에그타르트","quantity":1,"unitPrice":2300,"total":2300}]}`;
 
 export async function extractReceiptWithClaude(
@@ -51,7 +59,7 @@ export async function extractReceiptWithClaude(
   const client = getClient();
 
   const response = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: "claude-sonnet-4-6",
     max_tokens: 1024,
     messages: [
       {
@@ -82,18 +90,25 @@ export async function extractReceiptWithClaude(
   };
 
   if (result.vendor) fields.vendor = result.vendor;
-  if (typeof result.totalAmount === "number" && result.totalAmount > 0) {
-    fields.totalAmount = result.totalAmount;
-  }
-  if (typeof result.taxAmount === "number") {
-    fields.taxAmount = result.taxAmount;
-  }
+
+  const total = toNumber(result.totalAmount);
+  if (total != null && total > 0) fields.totalAmount = total;
+
+  const tax = toNumber(result.taxAmount);
+  if (tax != null && tax >= 0) fields.taxAmount = tax;
+
   if (result.receiptDate) {
     const d = new Date(result.receiptDate);
     if (!isNaN(d.getTime())) fields.receiptDate = Timestamp.fromDate(d);
   }
+
   if (result.lineItems?.length) {
-    fields.lineItems = result.lineItems;
+    fields.lineItems = result.lineItems.map((item) => ({
+      description: item.description,
+      quantity: toNumber(item.quantity) ?? 1,
+      unitPrice: toNumber(item.unitPrice) ?? 0,
+      total: toNumber(item.total) ?? 0,
+    }));
   }
 
   return fields;
