@@ -11,8 +11,11 @@ export type ClientReceipt = {
   scanStatus: "uploaded" | "processing" | "ocr_complete" | "needs_review" | "confirmed" | "failed";
   extracted: {
     vendor?: string;
-    totalAmount?: number;
-    currency?: string;
+    totalAmount?: number;       // MYR (converted)
+    currency?: string;          // original detected currency
+    originalAmount?: number;    // amount in original currency
+    exchangeRate?: number;      // 1 originalCurrency = N MYR
+    exchangeRateDate?: string;
     taxAmount?: number;
     receiptDate?: Date;
   };
@@ -48,6 +51,9 @@ export function useReceipts(userId: string | null) {
               vendor: data.extracted?.vendor,
               totalAmount: data.extracted?.totalAmount,
               currency: data.extracted?.currency ?? "MYR",
+              originalAmount: data.extracted?.originalAmount,
+              exchangeRate: data.extracted?.exchangeRate,
+              exchangeRateDate: data.extracted?.exchangeRateDate,
               taxAmount: data.extracted?.taxAmount,
               receiptDate: data.extracted?.receiptDate?.toDate?.(),
             },

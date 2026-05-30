@@ -254,6 +254,19 @@ export function UploadModal({ open, onClose, userId, initialFile, onSuccess }: P
               Review the extracted data and confirm to add to your ledger.
             </p>
 
+            {/* Currency conversion banner */}
+            {result.extracted.currency && result.extracted.currency !== "MYR" && result.extracted.originalAmount != null && result.extracted.exchangeRate != null && (
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-800">
+                <p className="font-semibold">
+                  {result.extracted.currency} {result.extracted.originalAmount.toFixed(2)} → RM {parseFloat(form.amount).toFixed(2)}
+                </p>
+                <p className="mt-0.5 text-blue-600">
+                  Rate: 1 {result.extracted.currency} = RM {result.extracted.exchangeRate.toFixed(4)}
+                  {result.extracted.exchangeRateDate && ` · ${result.extracted.exchangeRateDate}`}
+                </p>
+              </div>
+            )}
+
             <div className="flex gap-2">
               {(["expense", "income"] as const).map((t) => (
                 <button
@@ -284,7 +297,9 @@ export function UploadModal({ open, onClose, userId, initialFile, onSuccess }: P
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1 block text-xs font-medium text-zinc-600">
-                  Amount (RM)
+                  {result.extracted.currency && result.extracted.currency !== "MYR"
+                    ? `Amount (RM — converted from ${result.extracted.currency})`
+                    : "Amount (RM)"}
                 </label>
                 <input
                   type="number"

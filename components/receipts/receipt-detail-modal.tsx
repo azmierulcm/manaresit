@@ -220,9 +220,22 @@ export function ReceiptDetailModal({ receipt, userId, open, onClose, onConfirmed
               <div className="space-y-3 rounded-2xl bg-zinc-50 p-4 text-sm">
                 <Row label="Vendor" value={receipt.extracted.vendor || "—"} />
                 <Row
-                  label="Amount"
+                  label="Amount (RM)"
                   value={receipt.extracted.totalAmount != null ? money.format(receipt.extracted.totalAmount) : "—"}
                 />
+                {receipt.extracted.currency && receipt.extracted.currency !== "MYR" && receipt.extracted.originalAmount != null && (
+                  <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2">
+                    <p className="text-xs text-blue-700 font-medium">
+                      Original: {receipt.extracted.currency} {receipt.extracted.originalAmount.toFixed(2)}
+                    </p>
+                    {receipt.extracted.exchangeRate != null && (
+                      <p className="mt-0.5 text-[11px] text-blue-500">
+                        Rate: 1 {receipt.extracted.currency} = RM {receipt.extracted.exchangeRate.toFixed(4)}
+                        {receipt.extracted.exchangeRateDate && ` · ${receipt.extracted.exchangeRateDate}`}
+                      </p>
+                    )}
+                  </div>
+                )}
                 <Row
                   label="Date"
                   value={receipt.extracted.receiptDate ? dateFmt.format(receipt.extracted.receiptDate) : "—"}

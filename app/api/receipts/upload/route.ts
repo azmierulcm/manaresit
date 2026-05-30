@@ -4,6 +4,7 @@ import sharp from "sharp";
 import { adminAuth, adminDb, adminStorage } from "@/lib/firebase/admin";
 import { extractReceiptText } from "@/lib/ocr/vision";
 import { parseReceiptText, suggestCategory } from "@/lib/ocr/parser";
+import { getExchangeRate } from "@/lib/currency/exchange";
 import type { ReceiptDoc, ReceiptUploadResponse } from "@/types/receipt";
 
 export const runtime = "nodejs";
@@ -119,10 +120,32 @@ export async function POST(request: NextRequest) {
       scanStatus = "ocr_complete";
     }
 
-    // 4. Category suggestion
+    // 4. Currency conversion — if not MYR, fetch live rate and convert
+    if (
+      extracted.totalAmount != null &&
+      extracted.currency &&
+      extracted.currency !== "MYR"
+    ) {
+      try {
+        const rate = await getExchangeRate(extracted.currency, "MYR");
+        const today = new Date().toISOString().split("T")[0];
+        extracted = {
+          ...extracted,
+          originalAmount: extracted.totalAmount,
+          exchangeRate: rate,
+          exchangeRateDate: today,
+          totalAmount: Math.round(extracted.totalAmount * rate * 100) / 100,
+        };
+      } catch (rateErr) {
+        console.error("Exchange rate fetch failed:", rateErr);
+        // Keep original amount — user can correct in review screen
+      }
+    }
+
+    // 5. Category suggestion
     const categorySuggestion = suggestCategory(extracted.vendor);
 
-    // 5. Write receipt doc to Firestore
+    // 6. Write receipt doc to Firestore
     const now = FieldValue.serverTimestamp();
     const receiptDoc: Omit<ReceiptDoc, "createdAt" | "updatedAt"> & {
       createdAt: FieldValue;
@@ -156,7 +179,7 @@ export async function POST(request: NextRequest) {
 
     await receiptRef.set(receiptDoc);
 
-    // 6. Build response
+    // 7. Build response
     const extractedResponse = {
       ...extracted,
       receiptDate: extracted.receiptDate

@@ -2,6 +2,7 @@ import "server-only";
 
 import { Timestamp } from "firebase-admin/firestore";
 import type { ReceiptExtractedFields } from "@/types/receipt";
+import { detectCurrency } from "@/lib/currency/exchange";
 
 export function parseReceiptText(text: string): ReceiptExtractedFields {
   if (!text.trim()) {
@@ -18,11 +19,13 @@ export function parseReceiptText(text: string): ReceiptExtractedFields {
   const taxAmount = extractTax(text);
   const receiptDate = extractDate(text);
 
+  const currency = detectCurrency(text);
+
   return {
     vendor,
     totalAmount,
     taxAmount: taxAmount ?? 0,
-    currency: "MYR",
+    currency,
     receiptDate: receiptDate ? Timestamp.fromDate(receiptDate) : Timestamp.now(),
     lineItems:
       totalAmount != null

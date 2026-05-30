@@ -17,8 +17,11 @@ export type ReceiptExtractedLineItem = {
 
 export type ReceiptExtractedFields = {
   vendor?: string;
-  totalAmount?: number;
-  currency?: string;
+  totalAmount?: number;       // always in MYR (converted if foreign)
+  currency?: string;          // detected original currency (e.g. "USD")
+  originalAmount?: number;    // amount in original currency (before conversion)
+  exchangeRate?: number;      // rate used: 1 originalCurrency = exchangeRate MYR
+  exchangeRateDate?: string;  // ISO date of the rate used
   receiptDate?: Timestamp;
   taxAmount?: number;
   lineItems?: ReceiptExtractedLineItem[];
