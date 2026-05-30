@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import sharp from "sharp";
 import { adminAuth, adminDb, adminStorage } from "@/lib/firebase/admin";
-import { extractReceiptText } from "@/lib/ocr/vision";
-import { parseReceiptText, suggestCategory } from "@/lib/ocr/parser";
+import { extractReceiptWithClaude } from "@/lib/ocr/claude-extractor";
+import { suggestCategory } from "@/lib/ocr/parser";
 import { getExchangeRate } from "@/lib/currency/exchange";
 import type { ReceiptDoc, ReceiptUploadResponse } from "@/types/receipt";
 
@@ -17,6 +17,7 @@ const ALLOWED_TYPES = new Set([
   "image/webp",
   "image/heic",
   "image/heif",
+  "image/avif",
 ]);
 
 async function getUserId(request: NextRequest) {
@@ -102,21 +103,28 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const ocrPromise = extractReceiptText(originalBuffer).catch((err) => {
-      console.error("OCR failed, saving for manual review:", err);
-      return null; // null signals OCR failure
-    });
+    // Convert to JPEG then extract structured fields with Claude Vision
+    const extractPromise = sharp(originalBuffer)
+      .rotate()
+      .resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 90 })
+      .toBuffer()
+      .then((jpegBuf) => extractReceiptWithClaude(jpegBuf))
+      .catch((err) => {
+        console.error("Receipt extraction failed, saving for manual review:", err);
+        return null;
+      });
 
-    const [, rawText] = await Promise.all([uploadPromise, ocrPromise]);
+    const [, extractedOrNull] = await Promise.all([uploadPromise, extractPromise]);
 
-    let extracted: ReturnType<typeof parseReceiptText>;
+    let extracted: Awaited<ReturnType<typeof extractReceiptWithClaude>>;
     let scanStatus: ReceiptDoc["scanStatus"];
 
-    if (rawText === null) {
+    if (extractedOrNull === null) {
       extracted = { currency: "MYR", receiptDate: Timestamp.now() };
       scanStatus = "needs_review";
     } else {
-      extracted = parseReceiptText(rawText);
+      extracted = extractedOrNull;
       scanStatus = "ocr_complete";
     }
 

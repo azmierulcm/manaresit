@@ -33,7 +33,7 @@ export async function extractReceiptText(imageBuffer: Buffer): Promise<string> {
   const [result] = await client.documentTextDetection({
     image: { content: imageBuffer.toString("base64") },
     imageContext: {
-      languageHints: ["en", "ms"],
+      languageHints: ["en", "ms", "ko", "zh-Hant", "zh-Hans", "ja", "th"],
     },
   });
 

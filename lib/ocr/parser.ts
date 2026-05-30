@@ -135,21 +135,36 @@ function extractTotal(text: string): number | undefined {
     /TOTAL[\s\n:RM]*([\d,]+\.?\d*)/i,
     /BAYARAN[\s\n:RM]*([\d,]+\.?\d*)/i,
     /AMOUNT[\s\n:RM]*([\d,]+\.?\d*)/i,
+    // Korean: 결제금액 (payment amount), 총합계 (grand total), 합계 (total),
+    //         청구금액 (billed), 총액 (total amount), 받을금액 (amount due)
+    /결제\s*금액[\s\n:₩]*([\d,]+)/,
+    /총\s*합\s*계[\s\n:₩]*([\d,]+)/,
+    /청구\s*금액[\s\n:₩]*([\d,]+)/,
+    /받을\s*금액[\s\n:₩]*([\d,]+)/,
+    /합\s*계[\s\n:₩]*([\d,]+)/,
+    /총\s*액[\s\n:₩]*([\d,]+)/,
+    /내야\s*할\s*금액[\s\n:₩]*([\d,]+)/,
   ];
 
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match) {
       const value = parseFloat(match[1].replace(/,/g, ""));
-      if (!isNaN(value) && value > 0 && value < 100000) return value;
+      if (!isNaN(value) && value > 0 && value < 100_000_000) return value;
     }
   }
 
-  // Fallback: collect all RM-prefixed amounts and return the largest
+  // Fallback: collect all RM or ₩-prefixed amounts and return the largest
   const rmAmounts = [...text.matchAll(/RM\s*([\d,]+\.\d{2})/gi)]
     .map((m) => parseFloat(m[1].replace(/,/g, "")))
     .filter((v) => !isNaN(v) && v > 0 && v < 100000);
   if (rmAmounts.length > 0) return Math.max(...rmAmounts);
+
+  // Korean Won amounts (integers, often large — e.g. 15,000)
+  const wonAmounts = [...text.matchAll(/₩\s*([\d,]+)/g)]
+    .map((m) => parseFloat(m[1].replace(/,/g, "")))
+    .filter((v) => !isNaN(v) && v > 0 && v < 100_000_000);
+  if (wonAmounts.length > 0) return Math.max(...wonAmounts);
 
   return undefined;
 }
@@ -162,6 +177,9 @@ function extractTax(text: string): number | undefined {
     /SERVICE\s+CHARGE[\s:RM]+([\d,]+\.?\d*)/i,
     /CUKAI\s+PERKHIDMATAN[\s:RM]+([\d,]+\.?\d*)/i,
     /TAX[\s:RM]+([\d,]+\.?\d*)/i,
+    // Korean: 부가세 / 부가가치세 (VAT)
+    /부가\s*가치\s*세[\s:₩]*([\d,]+)/,
+    /부가\s*세[\s:₩]*([\d,]+)/,
   ];
 
   for (const pattern of patterns) {
@@ -178,8 +196,15 @@ function extractTax(text: string): number | undefined {
 function extractDate(text: string): Date | null {
   const currentYear = new Date().getFullYear();
 
-  // YYYY-MM-DD (ISO) — check first to avoid misparse
-  const ymd = text.match(/\b(\d{4})[\/\-](\d{2})[\/\-](\d{2})\b/);
+  // Korean: YYYY년 MM월 DD일
+  const korean = text.match(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+  if (korean) {
+    const d = new Date(parseInt(korean[1]), parseInt(korean[2]) - 1, parseInt(korean[3]));
+    if (!isNaN(d.getTime()) && d.getFullYear() > 2000) return d;
+  }
+
+  // YYYY-MM-DD or YYYY.MM.DD (ISO and Korean dot style) — check before shorter patterns
+  const ymd = text.match(/\b(\d{4})[\/\-\.](\d{2})[\/\-\.](\d{2})\b/);
   if (ymd) {
     const d = new Date(parseInt(ymd[1]), parseInt(ymd[2]) - 1, parseInt(ymd[3]));
     if (!isNaN(d.getTime()) && d.getFullYear() > 2000) return d;
