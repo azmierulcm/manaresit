@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import sharp from "sharp";
 import { adminAuth, adminDb, adminStorage } from "@/lib/firebase/admin";
-import { extractReceiptWithClaude } from "@/lib/ocr/claude-extractor";
+import { extractReceiptWithGemini } from "@/lib/ocr/gemini-extractor";
 import { suggestCategory } from "@/lib/ocr/parser";
 import { getExchangeRate } from "@/lib/currency/exchange";
 import type { ReceiptDoc, ReceiptUploadResponse } from "@/types/receipt";
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       .resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true })
       .jpeg({ quality: 90 })
       .toBuffer()
-      .then((jpegBuf) => extractReceiptWithClaude(jpegBuf))
+      .then((jpegBuf) => extractReceiptWithGemini(jpegBuf))
       .catch((err) => {
         console.error("Receipt extraction failed, saving for manual review:", err);
         return null;
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
 
     const [, extractedOrNull] = await Promise.all([uploadPromise, extractPromise]);
 
-    let extracted: Awaited<ReturnType<typeof extractReceiptWithClaude>>;
+    let extracted: Awaited<ReturnType<typeof extractReceiptWithGemini>>;
     let scanStatus: ReceiptDoc["scanStatus"];
 
     if (extractedOrNull === null) {
